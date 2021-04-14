@@ -1,0 +1,33 @@
+﻿syntax = "proto3";
+//import "google/protobuf/descriptor.proto";
+//import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+//option go_package = "/stream";
+
+message Point{
+  double Price = 1;
+  double volume = 2;
+};
+
+
+message PublishTop5{
+  string Instrument = 1;
+  double Spread = 2;
+  int64 SourceTimeStamp = 3;
+  int64 SourceMessageCount = 4;
+  int64 UpdateCount = 5;
+  repeated Point Bid = 6;
+  repeated Point Ask = 7;
+  string Source = 8;
+  string UniqueName = 9;
+};
+
+
+
+
+
+service MyService {
+  rpc Check(PublishTop5) returns (google.protobuf.Empty);
+}
+
+
