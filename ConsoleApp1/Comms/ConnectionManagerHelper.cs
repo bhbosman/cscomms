@@ -5,26 +5,31 @@ namespace Comms
 {
     public static class ConnectionManagerHelper
     {
-        private static void WriteData<T>(this IObserver<T> observable, CancellationTokenSource cancellationTokenSource, T block)
+        private static void WriteData<T>(
+            this IObserver<T> observable, 
+            IConnectionCancelContext connectionCancelContext, 
+            T block)
         {
-            if (cancellationTokenSource.IsCancellationRequested)
+            if (connectionCancelContext.IsCancellationRequested)
             {
                 return;
             }
 
             if (block == null)
             {
-                cancellationTokenSource.Cancel();
+                connectionCancelContext.Cancel();
                 return;
             }
 
             observable.OnNext(block);
         }
-        public static Action<T> WriteData<T>(this IObserver<T> observable, CancellationTokenSource cancellationTokenSource)
+        public static Action<T> WriteData<T>(
+            this IObserver<T> observable, 
+            IConnectionCancelContext connectionCancelContext)
         {
             return block =>
             {
-                observable.WriteData(cancellationTokenSource, block);
+                observable.WriteData(connectionCancelContext, block);
                 
             };
         }

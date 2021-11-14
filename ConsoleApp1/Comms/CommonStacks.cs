@@ -54,23 +54,5 @@ namespace Comms
                 BottomStackMessageBlock.Create().CreateFactory());
             return result;
         }
-
-
-        // private static Factory<TIn, TNewOut> Link<TIn, TOut, TNewOut>(this Factory<TIn, TOut> f)
-        // {
-        //     return new Factory<TIn, TNewOut>();
-        // }
-        // private static IStackBuilder CreateCompressedBuilderddddddd()
-        // {
-        //     return new StackBuilderWithFactories<MessageBlock.MessageBlock, string, MessageBlock.MessageBlock, string>()
-        //         BottomStack<MessageBlock.MessageBlock, int>
-        //             .CreateInBoundFactory()
-        //             .Next(new BottomStack<int, double>())
-        //             .Next(new TopStack<double, string>()),
-        //         BottomStack<MessageBlock.MessageBlock, int>
-        //             .CreateInBoundFactory()
-        //             .Next(new BottomStack<int, double>())
-        //             .Next(new TopStack<double, string>()));
-        // }
     }
 }

@@ -9,32 +9,27 @@ namespace Comms.Stack.BottomStack
 {
     public sealed class BottomStack<TInboundOutput> : IStackComponent<MessageBlock.MessageBlock, TInboundOutput>
     {
+        public string Name => "Bottom";
+
         private  long _inByteCount;
         private  long _outByteCount;
         private readonly Func<MessageBlock.MessageBlock, TInboundOutput> _inFunc;
         private readonly Func<TInboundOutput, MessageBlock.MessageBlock> _outFunc;
     
-        public BottomStack(Func<MessageBlock.MessageBlock, TInboundOutput> inFunc, Func<TInboundOutput, MessageBlock.MessageBlock> outFunc)
+        public BottomStack(
+            Func<MessageBlock.MessageBlock, TInboundOutput> inFunc, 
+            Func<TInboundOutput, MessageBlock.MessageBlock> outFunc)
         {
             _inFunc = inFunc;
             _outFunc = outFunc;
         }
 
-        public IDisposable CreateStackData(
+        public object CreateStackData(
             ConnectionType connectionType,
-            CancellationTokenSource cancellationTokenSource,
+            IConnectionCancelContext connectionCancelContext,
             IUnityContainer unityContainer)
         {
-            switch (connectionType)
-            {
-                case ConnectionType.Acceptor:
-                case ConnectionType.Initiator:
-                    return Disposable.Create(() =>
-                    {
-                    });
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(connectionType), connectionType, null);
-            }
+            return null;
         }
         public IObservable<TInboundOutput> CreateInbound(
             ConnectionType connectionType,

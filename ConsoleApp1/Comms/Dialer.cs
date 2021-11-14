@@ -12,11 +12,12 @@ namespace Comms
 
         private readonly Semaphore _semaphore;
 
-        public Dialer(
+        protected Dialer(
+            string name,
             IUnityContainer container, 
             IStackBuilder<MessageBlock.MessageBlock, TOutFromStack> stackBuilder, 
             IConnectionReactorFactory<TOutFromStack> connectionReactorFactory) 
-            : base(container, connectionReactorFactory)
+            : base(name, container, connectionReactorFactory)
         {
             _stackBuilder = stackBuilder;
             _semaphore = new Semaphore(1, 1);
@@ -29,44 +30,43 @@ namespace Comms
             DialConnection();
         }
 
+
+        
         private void DialConnection()
+        {
+            DialConnection(null);
+        }
+        private void DialConnection(Exception prevException)
         {
             _semaphore.WaitOne();
             var tcpClient = new TcpClient();
-            tcpClient.BeginConnect(
-                IPAddress.Parse("127.0.0.1"),
-                3010,
+            var context = new DialerBeginConnectContext(IPAddress.Parse("127.0.0.1"), 3000);
+            tcpClient.Client.BeginConnect(
+                context.IpAddress, context.Port,
                 CreateNewConnection(
                     _stackBuilder,
                     result =>
                     {
+                        if (!(result.AsyncState is DialerBeginConnectContext ctx))
+                        {
+                            var s = $"{nameof(result)} is not of type {typeof(DialerBeginConnectContext).FullName}";
+                            throw new DialerException(s, new ArgumentException(s));
+                        }
                         try
                         {
                             tcpClient.EndConnect(result);
                             return tcpClient;
                         }
-                        catch (Exception)
+                        catch (Exception e)
                         {
                             _semaphore.Release();
-                            throw;
+                            throw new DialerException($"Fail on establishing a connection to {ctx.IpAddress}", e);
                         }
                     },
-                    (container,
-                        source) =>
-                    {
-                        source.Token.Register(() => { _semaphore.Release(); });
-                    },
+                    source => source.Register(() => _semaphore.Release()),
                     DialConnection,
                     ConnectionType.Initiator),
-                null);
+                context);
         }
     }
-    public class Dialer : Dialer<MessageBlock.MessageBlock>
-    {
-        public Dialer(IUnityContainer container, IStackBuilder<MessageBlock.MessageBlock, MessageBlock.MessageBlock> stackBuilder, IConnectionReactorFactory<MessageBlock.MessageBlock> connectionReactorFactory) 
-            : base(container, stackBuilder, connectionReactorFactory)
-        {
-        }
-    }
-    
 }

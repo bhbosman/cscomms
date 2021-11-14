@@ -1,4 +1,5 @@
 ﻿using Comms;
+using Comms.Interfaces;
 using FixConnection.FixDirectoryServices;
 using FixConnection.Messages;
 using Unity;

@@ -6,24 +6,26 @@ namespace Comms
 {
     public class InOutboundParams<TIn>: IDisposable
     {
-        public IDisposable StackContext { get; }
-        public CancellationTokenSource TokenSource { get; }
+        public object StackContext { get; }
+        public IConnectionCancelContext ConnectionCancelContext { get; }
         public IObservable<TIn> NextObservable { get; }
         public IUnityContainer Container { get; }
 
-        public InOutboundParams(IDisposable stackContext, CancellationTokenSource cancellationTokenSource, IObservable<TIn> nextObservable, IUnityContainer unityContainer)
+        public InOutboundParams(
+            object stackContext, 
+            IConnectionCancelContext connectionCancelContext,
+            IObservable<TIn> nextObservable,
+            IUnityContainer unityContainer)
         {
             StackContext = stackContext;
-            TokenSource = cancellationTokenSource;
+            ConnectionCancelContext = connectionCancelContext;
             NextObservable = nextObservable;
             Container = unityContainer;
         }
 
         public void Dispose()
         {
-            TokenSource?.Dispose();
             Container?.Dispose();
-            StackContext?.Dispose();
         }
     }
 }

@@ -11,20 +11,14 @@ namespace Comms.Stack.CarriageReturnMessageBreaker
     
     public sealed class CrMessageBreaker : IStackComponent<MessageBlock.MessageBlock, MessageBlock.MessageBlock>
     {
-        public IDisposable CreateStackData(
+        public string Name => "CrMessageBreaker";
+
+        public object CreateStackData(
             ConnectionType connectionType,
-            CancellationTokenSource cancellationTokenSource,
+            IConnectionCancelContext connectionCancelContext,
             IUnityContainer unityContainer)
         {
-            
-            switch (connectionType)
-            {
-                case ConnectionType.Acceptor: 
-                case ConnectionType.Initiator:
-                    return Disposable.Empty;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(connectionType), connectionType, null);
-            }
+            return null;
         }
 
         public IObservable<MessageBlock.MessageBlock> CreateInbound(

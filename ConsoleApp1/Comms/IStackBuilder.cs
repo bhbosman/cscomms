@@ -8,9 +8,10 @@ namespace Comms
 {
     public interface IStackBuilder<TIn, TOut>
     {
-        IList<IDisposable> CreateContext(
+        IDictionary<string, object> CreateContext(
             ConnectionType connectionType,
-            CancellationTokenSource cancellationTokenSource, IUnityContainer unityContainer);
+            IConnectionCancelContext connectionCancelContext,
+            IUnityContainer unityContainer);
         IObservable<TOut> BuildIn(StackFactoryInOutboundParams<TIn> data);
         IObservable<TIn> BuildOut(StackFactoryInOutboundParams<TOut> data);
     }

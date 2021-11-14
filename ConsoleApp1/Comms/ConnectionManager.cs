@@ -1,32 +1,38 @@
 ﻿using System;
+using System.Collections;
 using System.Net.Sockets;
 using System.Reactive.Disposables;
 using System.Reactive.Subjects;
 using System.Threading;
 using System.Threading.Tasks;
 using Comms.Extensions;
+using Comms.Interfaces;
 using Unity;
 
 namespace Comms
 {
-    public enum ConnectionType
-    {
-        Acceptor,
-        Initiator
-    }
-    
     public abstract class ConnectionManager<TOutFromStack> :  IStartStop, IDisposable
     {
         private readonly IConnectionReactorFactory<TOutFromStack> _connectionReactorFactory;
         protected IUnityContainer Container { get; }
+        private ConnectionCancelContextOwner ConnectionCancelContext { get; }
 
         protected ConnectionManager(
-            IUnityContainer parentContainer,
+            string name,
+            IUnityContainer container,
             IConnectionReactorFactory<TOutFromStack> connectionReactorFactory,
             params IConnectionManagerParamValue<TOutFromStack>[] additionalData) 
         {
             _connectionReactorFactory = connectionReactorFactory;
-            Container = parentContainer.CreateChildContainer();
+            Container = container;
+            var appCancelContext = Container.Resolve<IConnectionCancelContext>("Application");
+
+            var (cancelTokenSourceForDialer, cancelTokenForDialer) = appCancelContext.CreateChild(Container.Dispose);
+            ConnectionCancelContext = new ConnectionCancelContextOwner(
+                $"ConnectionCancelContext for: {name}",
+                cancelTokenSourceForDialer,
+                cancelTokenForDialer); 
+            Container.RegisterInstance<IConnectionCancelContext>(ConnectionCancelContext, InstanceLifetime.External);
             Container.RegisterInstance(connectionReactorFactory);
             foreach (var parameter in additionalData)
             {
@@ -36,51 +42,60 @@ namespace Comms
 
         public void Dispose()
         {
-            Container?.Dispose();
+            ConnectionCancelContext.Dispose();
         }
 
         private static void CreateConnectionLayer(
             IStackBuilder<MessageBlock.MessageBlock, TOutFromStack> stackBuilder,
             IConnectionReactorFactory<TOutFromStack> connectionReactorFactory,
-            CancellationTokenSource cancellationTokenSource,
+            IConnectionCancelContext connectionCancelContext,
             IStreamableClient streamableClient,
             IUnityContainer container, 
             ConnectionType connectionType)
         {
-            var readFromStreamBottomObservable = streamableClient.ReadDataObservable(cancellationTokenSource);
+            var readFromStreamBottomObservable = streamableClient.ReadDataObservable(connectionCancelContext);
             
             var writeToStreamTopObservable = new Subject<TOutFromStack>();
-            container.AddToDisposableList(() =>
-            {
-                writeToStreamTopObservable.OnCompleted();
-                writeToStreamTopObservable.Dispose();
-            });
+            connectionCancelContext.Register(
+                () =>
+                {
+                    writeToStreamTopObservable.OnCompleted();
+                    writeToStreamTopObservable.Dispose();
+                });
 
             var (disposables, readFromStreamTopObservable, writeToStreamBottomObservable) = stackBuilder.Build(
                 new StackBuilderExt.BuildParams<MessageBlock.MessageBlock, TOutFromStack>(
                     connectionType,
-                    cancellationTokenSource,
+                    connectionCancelContext,
                     container,
                     readFromStreamBottomObservable,
                     writeToStreamTopObservable));
-            foreach (var disposable in disposables)
+
+            IConnectionReactor<TOutFromStack> connectionReactor;
+
+            try
             {
-                container.AddToDisposableList(disposable);
+                connectionReactor = connectionReactorFactory.Create(container, connectionCancelContext);
+                connectionCancelContext.Register(connectionReactor.Dispose);
             }
-            var connectionReactor = connectionReactorFactory.Create(container, cancellationTokenSource);
-            container.AddToDisposableList(connectionReactor);
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                throw new ConnectionManagerException("", e);
+            }
             
             var toConnectionReactorSubject = new Subject<TOutFromStack>();
-            container.AddToDisposableList(() =>
-            {
-                toConnectionReactorSubject.OnCompleted();
-                toConnectionReactorSubject.Dispose();
-            });
+            connectionCancelContext.Register(
+                () =>
+                {
+                    toConnectionReactorSubject.OnCompleted();
+                    toConnectionReactorSubject.Dispose();
+                });
             
             var nextAction = connectionReactor.Init(
                 writeToStreamTopObservable,
                 toConnectionReactorSubject,
-                cancellationTokenSource,
+                connectionCancelContext,
                 container);
             toConnectionReactorSubject
                 .Subscribe(
@@ -91,44 +106,51 @@ namespace Comms
             
             readFromStreamTopObservable
                 .Subscribe(
-                    toConnectionReactorSubject.WriteData(cancellationTokenSource)
+                    toConnectionReactorSubject.WriteData(connectionCancelContext)
                         .WrapWithException(
-                            KillConnectionWithExceptionAction("Inbound stack error", cancellationTokenSource)),
-                    KillConnectionWithExceptionAction("Inbound stack error", cancellationTokenSource),
-                    KillConnectionForAction("Inbound stack complete", cancellationTokenSource)
+                            KillConnectionWithExceptionAction("Inbound stack error", connectionCancelContext)),
+                    KillConnectionWithExceptionAction("Inbound stack error", connectionCancelContext),
+                    KillConnectionForAction("Inbound stack complete", connectionCancelContext)
                 );
 
             writeToStreamBottomObservable
                 .Subscribe(
-                    streamableClient.WriteData(cancellationTokenSource)
-                        .WrapWithException(KillConnectionWithExceptionAction("Outbound stack error", cancellationTokenSource)),
-                    KillConnectionWithExceptionAction("Outbound stack error", cancellationTokenSource),
-                    KillConnectionForAction("Outbound stack complete", cancellationTokenSource));
+                    streamableClient.WriteData(connectionCancelContext)
+                        .WrapWithException(KillConnectionWithExceptionAction("Outbound stack error", connectionCancelContext)),
+                    KillConnectionWithExceptionAction("Outbound stack error", connectionCancelContext),
+                    KillConnectionForAction("Outbound stack complete", connectionCancelContext));
         }
 
-        private static Action<Exception> KillConnectionWithExceptionAction(string s, CancellationTokenSource cancellationTokenSource)
+        private static Action<Exception> KillConnectionWithExceptionAction(
+            string s, 
+            IConnectionCancelContext connectionCancelContext)
         {
             return exception =>
             {
-                KillConnection(s, cancellationTokenSource, exception);
+                KillConnection(s, connectionCancelContext, exception);
             };
         }
-        private static Action KillConnectionForAction(string s, CancellationTokenSource cancellationTokenSource)
+        private static Action KillConnectionForAction(
+            string s,
+            IConnectionCancelContext connectionCancelContext)
         {
             return () =>
             {
-                KillConnection(s, cancellationTokenSource, null);
+                KillConnection(s, connectionCancelContext, null);
             };
         }
 
-        private static void KillConnection(string s, CancellationTokenSource cancellationTokenSource, Exception exception)
+        private static void KillConnection(
+            string s,
+            IConnectionCancelContext connectionCancelContext,
+            Exception exception)
         {
             Console.WriteLine(s);
-            if (cancellationTokenSource.IsCancellationRequested)
+            if (connectionCancelContext.IsCancellationRequested)
             {
                 return;
             }
-            cancellationTokenSource.Cancel();
+            connectionCancelContext.Cancel();
         }
 
         public virtual void Start()
@@ -143,28 +165,43 @@ namespace Comms
         protected AsyncCallback CreateNewConnection(
             IStackBuilder<MessageBlock.MessageBlock, TOutFromStack> stackBuilder,
             Func<IAsyncResult, TcpClient> createTcpFunc,
-            Action<IUnityContainer, CancellationTokenSource> registrationAction,
-            Action afterCreateAction, 
+            Action<IConnectionCancelContext> registrationAction,
+            Action<Exception> afterCreateAction, 
             ConnectionType connectionType)
         {
             return result =>
             {
+                
                 Task.Run(() =>
                 {
-                    TcpClient tcpClient;
+                    Exception prevException = null;
+                    TcpClient tcpClient = null;
                     try
                     {
                         tcpClient = createTcpFunc(result);
                     }
-                    catch (Exception)
+                    catch (DialerException e)
                     {
-                        return;
+                        prevException = e;
                     }
-                    Console.WriteLine("CreateNewConnection");
-                    IStreamableClient streamableWrapper = new StreamableTcpClientImpl(tcpClient);
-                    InitiateNewClient(stackBuilder, registrationAction, streamableWrapper, 0, connectionType);
-                    
-                    afterCreateAction();
+                    catch (Exception e)
+                    {
+                        prevException = e;
+                    }
+                    if (tcpClient != null)
+                    {
+                        if (prevException == null)
+                        {
+                            Console.WriteLine("CreateNewConnection");
+                            IStreamableClient streamableWrapper = new StreamableTcpClientImpl(tcpClient);
+                            InitiateNewClient(
+                                stackBuilder, 
+                                registrationAction, 
+                                streamableWrapper, 
+                                connectionType);
+                            afterCreateAction(prevException);
+                        }
+                    }
                 });
                 
             };
@@ -172,48 +209,35 @@ namespace Comms
 
         protected IDisposable InitiateNewClient(
             IStackBuilder<MessageBlock.MessageBlock, TOutFromStack> stackBuilder,
-            Action<IUnityContainer, CancellationTokenSource> registrationAction,
+            Action<IConnectionCancelContext> registrationAction,
             IStreamableClient streamableWrapper,
-            int sleepOnDispose,
             ConnectionType connectionType)
         {
             var childContainer = Container.CreateChildContainer();
             RegisterTypesWithChildContainer(childContainer);
-            var cancellationTokenSource = new CancellationTokenSource();
-            cancellationTokenSource.Token.Register(
-                () =>
-                {
-                    Task.Run(() =>
-                    {
-                        childContainer?.Dispose();
-                    }, CancellationToken.None);
-                });
+
+            var childContext = ConnectionCancelContext.CreateChild(childContainer.Dispose);
+            var connectionContextForNewInstance = new ConnectionCancelContextOwner("NewConnection", childContext.Item1, childContext.Item2);
+            childContainer.RegisterInstance<IConnectionCancelContext>(connectionContextForNewInstance, InstanceLifetime.External);
             childContainer.RegisterInstance(streamableWrapper);
             try
             {
                 CreateConnectionLayer(
                     stackBuilder, 
                     _connectionReactorFactory, 
-                    cancellationTokenSource, 
+                    connectionContextForNewInstance, 
                     streamableWrapper, 
                     childContainer, 
                     connectionType);
-                registrationAction(childContainer, cancellationTokenSource);
+                registrationAction(connectionContextForNewInstance);
             }
             catch (Exception e)
             {
-                cancellationTokenSource.Cancel();
+                connectionContextForNewInstance.Cancel();
                 throw;
             }
-            return Disposable.Create(
-                () =>
-                {
-                    if (sleepOnDispose != 0)
-                    {
-                        Thread.Sleep(sleepOnDispose); 
-                    }
-                    cancellationTokenSource.Cancel();
-                });
+            
+            return Disposable.Create(connectionContextForNewInstance.Cancel);
         }
 
         protected virtual void RegisterTypesWithChildContainer(IUnityContainer childContainer)

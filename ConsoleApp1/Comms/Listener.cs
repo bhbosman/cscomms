@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Reactive.Disposables;
 using System.Threading;
+using Comms.Interfaces;
 using Unity;
 
 namespace Comms
@@ -13,25 +14,24 @@ namespace Comms
         private readonly List<IpAddressAndPort<TOutFromStack>> _ipAddressAndPort = new List<IpAddressAndPort<TOutFromStack>>(); 
    
         public Listener(
+            string name,
             IUnityContainer parentContainer,
             IConnectionReactorFactory<TOutFromStack> connectionReactorFactory,
             params IConnectionManagerParamValue<TOutFromStack>[] parameter)
-            : base(parentContainer, connectionReactorFactory, parameter)
+            : base(name, parentContainer, connectionReactorFactory, parameter)
         {
 
         }
 
         public IDisposable InitiateNewClient(
             IStackBuilder<MessageBlock.MessageBlock, TOutFromStack> stackBuilder,
-            Action<IUnityContainer, CancellationTokenSource> registrationAction,
-            IStreamableClient streamableWrapper,
-            int sleepOnDispose)
+            Action<IConnectionCancelContext> registrationAction,
+            IStreamableClient streamableWrapper)
         {
             return InitiateNewClient(
                 stackBuilder,
                 registrationAction,
                 streamableWrapper,
-                sleepOnDispose,
                 ConnectionType.Acceptor);
         }
 
@@ -41,11 +41,11 @@ namespace Comms
             if (port == 0) { throw new ArgumentNullException(nameof(port)); }
             var tcpListen = new TcpListener(address, port);
             tcpListen.Start();
-            Container.AddToDisposableList(Disposable.Create(
-                () =>
-                {
-                    tcpListen.Stop();
-                }));
+            // Container.AddToDisposableList(Disposable.Create(
+            //     () =>
+            //     {
+            //         tcpListen.Stop();
+            //     }));
             AcceptConnection(tcpListen, stackBuilder);
         }
 
@@ -58,14 +58,19 @@ namespace Comms
             }
         }
 
-        private void AcceptConnection(TcpListener tcpListen, IStackBuilder<MessageBlock.MessageBlock, TOutFromStack> _stackBuilder)
+        private void AcceptConnection(
+            TcpListener tcpListen, 
+            IStackBuilder<MessageBlock.MessageBlock, TOutFromStack> stackBuilder)
         {
             tcpListen.BeginAcceptTcpClient(
                 CreateNewConnection(
-                    _stackBuilder,
+                    stackBuilder,
                     tcpListen.EndAcceptTcpClient,
-                    (container, source) => { },
-                    () => AcceptConnection(tcpListen, _stackBuilder),
+                    (source) => { },
+                    (exception) =>
+                    {
+                        AcceptConnection(tcpListen, stackBuilder);
+                    },
                     ConnectionType.Acceptor),
                 null);
         }

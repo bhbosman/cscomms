@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Threading;
+using Comms.Interfaces;
 using Unity;
 
-namespace Comms
+namespace Comms.StackFactory
 {
     public sealed class StackFactory<TIn, TOut>: IStackFactory<TIn, TOut>
     {
@@ -20,33 +20,37 @@ namespace Comms
 
         public void CreateContext(
             ConnectionType connectionType,
-            List<IDisposable> context, CancellationTokenSource cancellationTokenSource,
+            IDictionary<string, object> context, 
+            IConnectionCancelContext connectionCancelContext,
             IUnityContainer unityContainer)
         {
-            var disposable = _stackComponent.CreateStackData(connectionType, cancellationTokenSource, unityContainer);
-            unityContainer.AddToDisposableList(disposable);
-            
-            context.Add(disposable);
+            var stackData = _stackComponent.CreateStackData(connectionType, connectionCancelContext, unityContainer);
+            if (stackData != null)
+            {
+                context.Add(_stackComponent.Name, stackData);
+            }
         }
 
         public IObservable<TOut> CreateInbound(StackFactoryInOutboundParams<TIn> data)
         {
+            data.StackContext.TryGetValue(_stackComponent.Name, out var stackData);
             return _stackComponent.CreateInbound(
                 data.ConnectionType,
                 new InOutboundParams<TIn>(
-                    data.StackContext[0], 
-                    data.TokenSource, 
+                    stackData, 
+                    data.ConnectionCancelContext, 
                     data.NextObservable, 
                     data.Container));
         }
         
         public IObservable<TIn> CreateOutbound(StackFactoryInOutboundParams<TOut> data)
         {
+            data.StackContext.TryGetValue(_stackComponent.Name, out var stackData);
             return _stackComponent.CreateOutbound(
                 data.ConnectionType,
                 new InOutboundParams<TOut>(
-                    data.StackContext[0], 
-                    data.TokenSource,
+                    stackData, 
+                    data.ConnectionCancelContext,
                     data.NextObservable,
                     data.Container));
         }

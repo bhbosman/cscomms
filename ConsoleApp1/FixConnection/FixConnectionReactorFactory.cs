@@ -2,6 +2,7 @@
 using System.Net;
 using System.Threading;
 using Comms;
+using Comms.Interfaces;
 using Unity;
 
 namespace FixConnection

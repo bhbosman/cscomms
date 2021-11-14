@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Unity;
@@ -12,48 +13,48 @@ namespace Comms
         {
             public BuildParams(
                 ConnectionType connectionType, 
-                CancellationTokenSource cancellationTokenSource,
+                IConnectionCancelContext connectionCancelContext,
                 IUnityContainer unityContainer, 
                 IObservable<TIn> inboundBottomObservable,
                 IObservable<TOut> outboundBottomObservable)
             {
                 ConnectionType = connectionType;
-                CancellationTokenSource = cancellationTokenSource;
+                ConnectionCancelContext = connectionCancelContext;
                 UnityContainer = unityContainer;
                 InboundBottomObservable = inboundBottomObservable;
                 OutboundBottomObservable = outboundBottomObservable;
             }
 
             public ConnectionType ConnectionType { get; }
-            public CancellationTokenSource CancellationTokenSource { get; }
+            public IConnectionCancelContext ConnectionCancelContext{ get; }
             public IUnityContainer UnityContainer { get; }
             public IObservable<TIn> InboundBottomObservable { get; }
             public IObservable<TOut> OutboundBottomObservable { get; }
         }
-        public static Tuple<IDisposable[], IObservable<TOut>,IObservable<TIn>> Build<TIn, TOut>(
+        public static Tuple<IDictionary<string, object>, IObservable<TOut>,IObservable<TIn>> Build<TIn, TOut>(
             this IStackBuilder<TIn, TOut> stackBuilder,
             BuildParams<TIn, TOut> data)
         {
-            var disposables = stackBuilder.CreateContext(
+            var dict = stackBuilder.CreateContext(
                 data.ConnectionType,
-                data.CancellationTokenSource, 
-                data.UnityContainer).ToArray();
+                data.ConnectionCancelContext, 
+                data.UnityContainer);
             var inboundTop = stackBuilder.BuildIn(
                 new StackFactoryInOutboundParams<TIn>(
                     data.ConnectionType,
-                    disposables, 
-                    data.CancellationTokenSource, 
+                    dict, 
+                    data.ConnectionCancelContext, 
                     data.InboundBottomObservable,
                     data.UnityContainer));
             var outBoundBottom = stackBuilder.BuildOut(
                 new StackFactoryInOutboundParams<TOut>(
                     data.ConnectionType,
-                    disposables,
-                    data.CancellationTokenSource, 
+                    dict,
+                    data.ConnectionCancelContext, 
                     data.OutboundBottomObservable, 
                     data.UnityContainer));
-            return new Tuple<IDisposable[], IObservable<TOut>, IObservable<TIn>>(
-                disposables.ToArray(), 
+            return new Tuple<IDictionary<string, object>, IObservable<TOut>, IObservable<TIn>>(
+                dict, 
                 inboundTop,
                 outBoundBottom);
         }

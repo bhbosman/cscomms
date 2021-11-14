@@ -87,6 +87,7 @@
       <Compile Include="Messages\ParsedFixMessage.cs" />
       <Compile Include="SessionHelper.cs" />
       <Compile Include="Stack\Breaker\FixConnectionInboundBreaker.cs" />
+      <Compile Include="Stack\Breaker\FixConnectionInboundBreakerError.cs" />
       <Compile Include="Stack\Breaker\FixMessageBreaker.cs" />
       <Compile Include="Stack\Fix43MessageFactory\MessageFactory.cs" />
       <Compile Include="Stack\Fix43MessageFactory\MessageFactoryError.cs" />

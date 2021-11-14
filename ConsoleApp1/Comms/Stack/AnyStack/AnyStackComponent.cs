@@ -10,25 +10,28 @@ namespace Comms.Stack.AnyStack
     {
         private readonly Func<TIn, TOut> _inFunc;
         private readonly Func<TOut, TIn> _outFunc;
-        private readonly Func<IDisposable> _createContext;
+        private readonly Func<IConnectionCancelContext, object> _createContext;
 
-        public AnyStackComponent(Func<TIn, TOut> inFunc, Func<TOut, TIn> outFunc, Func<IDisposable> createContext)
+        public AnyStackComponent(string name, Func<TIn, TOut> inFunc, Func<TOut, TIn> outFunc, Func<IConnectionCancelContext, object> createContext)
         {
+            Name = name;
             _inFunc = inFunc;
             _outFunc = outFunc;
             _createContext = createContext;
         }
 
-        public IDisposable CreateStackData(
+        public string Name { get; }
+
+        public object CreateStackData(
             ConnectionType connectionType,
-            CancellationTokenSource cancellationTokenSource, 
+            IConnectionCancelContext connectionCancelContext, 
             IUnityContainer unityContainer)
         {
             switch (connectionType)
             {
                 case ConnectionType.Acceptor:
                 case ConnectionType.Initiator:
-                    return _createContext?.Invoke() ?? Disposable.Empty;
+                    return _createContext?.Invoke(connectionCancelContext) ?? Disposable.Empty;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(connectionType), connectionType, null);
             }

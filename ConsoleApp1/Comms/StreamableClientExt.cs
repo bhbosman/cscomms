@@ -11,19 +11,19 @@ namespace Comms
     {
         public static void WriteData(
             this IStreamableClient streamableClient,
-            CancellationTokenSource cancellationTokenSource,
+            IConnectionCancelContext connectionCancelContext,
             MessageBlock.MessageBlock block)
         {
             try
             {
-                if (cancellationTokenSource.IsCancellationRequested)
+                if (connectionCancelContext.IsCancellationRequested)
                 {
                     return;
                 }
 
                 if (block == null)
                 {
-                    cancellationTokenSource.Cancel();
+                    connectionCancelContext.Cancel();
                     return;
                 }
 
@@ -38,11 +38,11 @@ namespace Comms
 
         public static Action<MessageBlock.MessageBlock> WriteData(
             this IStreamableClient streamableClient,
-            CancellationTokenSource cancellationTokenSource)
+            IConnectionCancelContext connectionCancelContext)
         {
             return block =>
             {
-                WriteData(streamableClient, cancellationTokenSource, block);
+                WriteData(streamableClient, connectionCancelContext, block);
             };
         }
 
@@ -70,7 +70,7 @@ namespace Comms
 
         public static IObservable<MessageBlock.MessageBlock> ReadDataObservable(
             this IStreamableClient client,
-            CancellationTokenSource cancellationTokenSource)
+            IConnectionCancelContext connectionCancelContext)
         {
             return Observable.Create<MessageBlock.MessageBlock>(
                 observer =>
@@ -87,7 +87,7 @@ namespace Comms
                                 }
 
                                 var buffer = CreateNewArray();
-                                while (!cancellationTokenSource.IsCancellationRequested)
+                                while (!connectionCancelContext.IsCancellationRequested)
                                 {
                                     if (buffer.Item3 < 256)
                                         buffer = CreateNewArray();
@@ -99,11 +99,11 @@ namespace Comms
                                         buffer.Item3);
                                     if (n == 0)
                                     {
-                                        cancellationTokenSource.Cancel();
+                                        connectionCancelContext.Cancel();
                                         break;
                                     }
 
-                                    if (cancellationTokenSource.IsCancellationRequested)
+                                    if (connectionCancelContext.IsCancellationRequested)
                                     {
                                         break;
                                     }
@@ -122,10 +122,10 @@ namespace Comms
                             {
                                 observer.OnCompleted();
                             }
-                        },
-                        cancellationTokenSource.Token);
-                    return Disposable.Create(cancellationTokenSource.Cancel);
-                }).ObserveOn(ThreadPoolScheduler.Instance);
+                        });
+                    return Disposable.Create(connectionCancelContext.Cancel);
+                }
+            ).ObserveOn(ThreadPoolScheduler.Instance);
         }
     }
 }

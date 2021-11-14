@@ -9,10 +9,14 @@ namespace Comms.Stack.TopStack
 {
     public class TopStack<T>: IStackComponent<T, T>
     {
-        public IDisposable CreateStackData(ConnectionType connectionType, CancellationTokenSource cancellationTokenSource,
+        public string Name => "Top";
+
+        public object CreateStackData(
+            ConnectionType connectionType, 
+            IConnectionCancelContext connectionCancelContext,
             IUnityContainer unityContainer)
         {
-            return Disposable.Empty;
+            return null;
         }
 
         public IObservable<T> CreateInbound(ConnectionType connectionType, InOutboundParams<T> data)

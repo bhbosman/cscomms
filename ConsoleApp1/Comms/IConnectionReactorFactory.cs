@@ -1,4 +1,5 @@
 ﻿using System.Threading;
+using Comms.Interfaces;
 using Unity;
 
 namespace Comms
@@ -6,6 +7,6 @@ namespace Comms
     public interface IConnectionReactorFactory<T>
     {
         string Name { get; }
-        IConnectionReactor<T> Create(IUnityContainer container, CancellationTokenSource cancellationTokenSource);
+        IConnectionReactor<T> Create(IUnityContainer container, IConnectionCancelContext connectionCancelContext);
     }
 }

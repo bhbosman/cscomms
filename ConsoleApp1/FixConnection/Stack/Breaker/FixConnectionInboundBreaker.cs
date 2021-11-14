@@ -11,13 +11,6 @@ namespace FixConnection.Stack.Breaker
         ReadValue
     }
 
-    public class FixConnectionInboundBreakerError : Exception
-    {
-        public FixConnectionInboundBreakerError(string error) : base(error)
-        {
-        }
-    }
-
     public interface dd
     {
         void OnNext(MessageBlock.MessageBlock block);

@@ -23,6 +23,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QuickFixClient", "QuickFixC
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProtobufExt", "ProtobufExt\ProtobufExt.csproj", "{D6FA5D8D-1AA0-4579-B0F2-24EE27436404}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConnectToLuna", "ConnectToLuna\ConnectToLuna.csproj", "{1FBC849B-AED9-4296-9AD7-29206F18F652}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -69,11 +71,17 @@ Global
 		{D6FA5D8D-1AA0-4579-B0F2-24EE27436404}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D6FA5D8D-1AA0-4579-B0F2-24EE27436404}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D6FA5D8D-1AA0-4579-B0F2-24EE27436404}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1FBC849B-AED9-4296-9AD7-29206F18F652}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1FBC849B-AED9-4296-9AD7-29206F18F652}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1FBC849B-AED9-4296-9AD7-29206F18F652}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1FBC849B-AED9-4296-9AD7-29206F18F652}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {4FEBF05E-61AC-4F9D-AD8B-5B800D1113A5}
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
 	EndGlobalSection
 EndGlobal

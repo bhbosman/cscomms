@@ -1,6 +1,9 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
+using Comms.Interfaces;
+using Comms.StackFactory;
 using Unity;
 
 namespace Comms
@@ -25,13 +28,14 @@ namespace Comms
             return _factory.CreateOutbound(data);
         }
  
-        public IList<IDisposable> CreateContext(
+        public IDictionary<string, object> CreateContext(
             ConnectionType connectionType,
-            CancellationTokenSource cancellationTokenSource, IUnityContainer unityContainer)
+            IConnectionCancelContext connectionCancelContext,
+            IUnityContainer unityContainer)
         {
-            List<IDisposable> disposables = new List<IDisposable>();
-            _factory.CreateContext(connectionType, disposables, cancellationTokenSource, unityContainer);
-            return disposables;
+            IDictionary<string, object> dict = new Dictionary<string, object>();
+            _factory.CreateContext(connectionType, dict, connectionCancelContext, unityContainer);
+            return dict;
         }
     }
 }

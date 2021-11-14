@@ -6,18 +6,14 @@ namespace Comms.Stack.BVISStackBreaker
 {
     public sealed class SequenceStackComponent : IStackComponent<MessageBlock.MessageBlock, MessageBlock.MessageBlock>
     {
-        public IDisposable CreateStackData(ConnectionType connectionType, CancellationTokenSource cancellationTokenSource,
+        public string Name => "Sequence";
+
+        public object CreateStackData(
+            ConnectionType connectionType, 
+            IConnectionCancelContext connectionCancelContext,
             IUnityContainer unityContainer)
         {
-            switch (connectionType)
-            {
-                case ConnectionType.Acceptor:
-                    throw new NotImplementedException();
-                case ConnectionType.Initiator:
-                    throw new NotImplementedException();
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(connectionType), connectionType, null);
-            }
+            return null;
         }
 
         public IObservable<MessageBlock.MessageBlock> CreateInbound(ConnectionType connectionType, InOutboundParams<MessageBlock.MessageBlock> data)
